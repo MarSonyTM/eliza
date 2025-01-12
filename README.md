@@ -146,6 +146,36 @@ pnpm install --include=optional sharp
   <img src="https://contrib.rocks/image?repo=elizaos/eliza" />
 </a>
 
+## 🎯 Current Development: Trading Agent
+
+### Phase 1: Real-Time Data Integration
+
+- Setting up CoinGecko API integration for cryptocurrency data
+- Implementing real-time price monitoring
+- Creating basic market analysis capabilities
+- Setting up price alerts and notifications
+
+### Phase 2: Trading Assistant Features
+
+- Market trend analysis
+- Trading signal generation
+- Risk assessment tools
+- Portfolio tracking
+
+### Phase 3: Automated Trading (Future)
+
+- Paper trading implementation
+- Trading strategy development
+- Risk management rules
+- Performance monitoring
+
+### Current Status
+
+- Version: v0.1.8
+- Active Character: MemeTrader
+- Model Provider: llama_local
+- Enabled Plugins: CoinGecko, Node
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=elizaos/eliza&type=Date)](https://star-history.com/#elizaos/eliza&Date)

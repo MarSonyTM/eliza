@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Crypto Trading Bot</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f5f5f5;
+            }
+            .container {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            button {
+                background: #512da8;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                margin: 10px 0;
+            }
+            button:hover {
+                background: #311b92;
+            }
+            .status {
+                margin: 20px 0;
+                padding: 15px;
+                border-radius: 4px;
+            }
+            .connected {
+                background: #e8f5e9;
+                color: #2e7d32;
+            }
+            .disconnected {
+                background: #ffebee;
+                color: #c62828;
+            }
+            .balance-container {
+                margin: 20px 0;
+            }
+            .balance-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+            }
+            #tradingMetrics {
+                margin-top: 20px;
+                padding: 15px;
+                background: #e3f2fd;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🤖 Crypto Trading Bot</h1>
+
+            <!-- Wallet Connection -->
+            <div id="walletStatus" class="status disconnected">
+                Wallet Status: Disconnected
+            </div>
+            <button id="connectWallet">Connect Phantom Wallet</button>
+
+            <!-- Balances -->
+            <div class="balance-container">
+                <h2>💰 Portfolio</h2>
+                <div id="balances"></div>
+            </div>
+
+            <!-- Trading Controls -->
+            <div>
+                <h2>📈 Trading Controls</h2>
+                <button id="startTrading">Start Trading Bot</button>
+                <button id="stopTrading">Stop Trading Bot</button>
+            </div>
+
+            <!-- Trading Metrics -->
+            <div id="tradingMetrics">
+                <h2>📊 Trading Metrics</h2>
+                <div>Total Trades: <span id="totalTrades">0</span></div>
+                <div>Win Rate: <span id="winRate">0%</span></div>
+                <div>Total Profit: <span id="totalProfit">$0.00</span></div>
+            </div>
+        </div>
+
+        <script type="module">
+            import { WalletManager } from "./trading/wallet-manager.js";
+            import { TradingAgent } from "./trading/trading-agent.js";
+
+            let isTrading = false;
+            const wallet = WalletManager.getInstance();
+            const agent = TradingAgent.getInstance();
+
+            // Connect wallet button
+            document
+                .getElementById("connectWallet")
+                .addEventListener("click", async () => {
+                    try {
+                        await wallet.connectPhantom();
+                        updateWalletStatus(true);
+                        updateBalances();
+                    } catch (error) {
+                        console.error("Failed to connect wallet:", error);
+                        alert(
+                            "Failed to connect wallet. Make sure Phantom is installed!"
+                        );
+                    }
+                });
+
+            // Start trading button
+            document
+                .getElementById("startTrading")
+                .addEventListener("click", async () => {
+                    if (!wallet.isConnected()) {
+                        alert("Please connect your wallet first!");
+                        return;
+                    }
+
+                    isTrading = true;
+                    agent.startTrading("BTCUSDT");
+                    updateTradingStatus();
+                });
+
+            // Stop trading button
+            document
+                .getElementById("stopTrading")
+                .addEventListener("click", () => {
+                    isTrading = false;
+                    updateTradingStatus();
+                });
+
+            function updateWalletStatus(connected) {
+                const status = document.getElementById("walletStatus");
+                if (connected) {
+                    status.className = "status connected";
+                    status.textContent = `Wallet Status: Connected (${wallet.getPublicKey()})`;
+                } else {
+                    status.className = "status disconnected";
+                    status.textContent = "Wallet Status: Disconnected";
+                }
+            }
+
+            async function updateBalances() {
+                const balancesDiv = document.getElementById("balances");
+                const balances = await wallet.getAllBalances();
+
+                balancesDiv.innerHTML = balances
+                    .map(
+                        (b) => `
+                <div class="balance-item">
+                    <span>${b.token}</span>
+                    <span>${b.amount} (${b.usdValue ? "$" + b.usdValue.toFixed(2) : "N/A"})</span>
+                </div>
+            `
+                    )
+                    .join("");
+            }
+
+            function updateTradingStatus() {
+                const startBtn = document.getElementById("startTrading");
+                const stopBtn = document.getElementById("stopTrading");
+
+                startBtn.disabled = isTrading;
+                stopBtn.disabled = !isTrading;
+            }
+
+            // Update metrics every 5 seconds
+            setInterval(() => {
+                if (isTrading) {
+                    const metrics = agent.getMetrics();
+                    document.getElementById("totalTrades").textContent =
+                        metrics.totalTrades;
+                    document.getElementById("winRate").textContent =
+                        `${metrics.winRate.toFixed(1)}%`;
+                    document.getElementById("totalProfit").textContent =
+                        `$${metrics.totalProfit.toFixed(2)}`;
+                }
+            }, 5000);
+        </script>
+    </body>
+</html>

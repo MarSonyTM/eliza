@@ -1,11 +1,15 @@
 {
     "name": "C-3PO",
     "clients": [],
-    "modelProvider": "anthropic",
+    "modelProvider": "llama_local",
+    "characterModelProvider": "llama_local",
+    "modelType": "llama_local",
+    "characterModelType": "llama_local",
     "settings": {
         "voice": {
             "model": "en_GB-alan-medium"
-        }
+        },
+        "model": "hermes"
     },
     "plugins": [],
     "bio": [

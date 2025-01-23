@@ -16,7 +16,7 @@ export class CoinGeckoService {
     > = new Map();
     private readonly cacheDuration = 30000; // 30 seconds cache
     private lastRequestTime = 0;
-    private readonly minRequestInterval = 1500; // 1.5 seconds between requests (to respect rate limits)
+    private readonly minRequestInterval = 500; // 500ms between requests
 
     private constructor() {}
 
@@ -31,93 +31,79 @@ export class CoinGeckoService {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    private async rateLimitedFetch(
-        url: string,
-        retries = 3
-    ): Promise<Response> {
-        for (let i = 0; i < retries; i++) {
-            try {
-                // Ensure minimum time between requests
-                const timeSinceLastRequest = Date.now() - this.lastRequestTime;
-                if (timeSinceLastRequest < this.minRequestInterval) {
-                    await this.sleep(
-                        this.minRequestInterval - timeSinceLastRequest
-                    );
-                }
+    private async rateLimitedFetch(url: string): Promise<Response> {
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequestTime;
 
-                this.lastRequestTime = Date.now();
-                const response = await fetch(url);
-
-                if (response.status === 429) {
-                    const retryAfter = parseInt(
-                        response.headers.get("retry-after") || "60"
-                    );
-                    console.log(
-                        `Rate limited by CoinGecko, waiting ${retryAfter}s before retry`
-                    );
-                    await this.sleep(retryAfter * 1000);
-                    continue;
-                }
-
-                return response;
-            } catch (error) {
-                if (i === retries - 1) throw error;
-                const backoffTime = Math.min(1000 * Math.pow(2, i), 10000);
-                console.warn(`Request failed, retrying in ${backoffTime}ms...`);
-                await this.sleep(backoffTime);
-            }
+        if (timeSinceLastRequest < this.minRequestInterval) {
+            await this.sleep(this.minRequestInterval - timeSinceLastRequest);
         }
-        throw new Error(`Failed after ${retries} retries`);
+
+        this.lastRequestTime = Date.now();
+        return fetch(url);
     }
 
-    public async getPriceData(coinIds: string[]): Promise<CoinGeckoPrice> {
+    public async getPriceData(coins: string[]): Promise<CoinGeckoPrice> {
         try {
-            // Check cache first
-            const cacheKey = coinIds.sort().join(",");
-            const cached = this.priceCache.get(cacheKey);
-            if (cached && Date.now() - cached.timestamp < this.cacheDuration) {
-                return cached.data;
-            }
-
+            const ids = coins.join(",");
             const response = await this.rateLimitedFetch(
-                `${this.baseUrl}/simple/price?ids=${coinIds.join(",")}&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true`
+                `${this.baseUrl}/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true`
             );
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const data = (await response.json()) as CoinGeckoPrice;
-
-            // Cache the result
-            this.priceCache.set(cacheKey, {
-                data,
-                timestamp: Date.now(),
-            });
-
-            return data;
+            const data = await response.json();
+            return data as CoinGeckoPrice;
         } catch (error) {
-            console.error("Failed to get price data from CoinGecko:", error);
-            // Return cached data if available
-            const cached = this.priceCache.get(coinIds.sort().join(","));
-            if (cached) return cached.data;
+            console.error("Error fetching price data from CoinGecko:", error);
             throw error;
         }
     }
 
-    public async getPrice(coinId: string): Promise<number> {
-        const data = await this.getPriceData([coinId]);
-        return data[coinId]?.usd || 0;
+    public async getPrice(coin: string): Promise<number> {
+        // Check cache first
+        const cached = this.priceCache.get(coin);
+        if (cached && Date.now() - cached.timestamp < this.cacheDuration) {
+            return cached.data[coin]?.usd || 0;
+        }
+
+        try {
+            const data = await this.getPriceData([coin]);
+            const price = data[coin]?.usd || 0;
+
+            // Update cache
+            this.priceCache.set(coin, {
+                data,
+                timestamp: Date.now(),
+            });
+
+            return price;
+        } catch (error) {
+            console.error("Error fetching price from CoinGecko:", error);
+            throw error;
+        }
     }
 
-    public async get24hVolume(coinId: string): Promise<number> {
-        const data = await this.getPriceData([coinId]);
-        return data[coinId]?.usd_24h_vol || 0;
+    public async get24hVolume(coin: string): Promise<number> {
+        try {
+            const data = await this.getPriceData([coin]);
+            return data[coin]?.usd_24h_vol || 0;
+        } catch (error) {
+            console.error("Error fetching 24h volume from CoinGecko:", error);
+            throw error;
+        }
     }
 
-    public async get24hChange(coinId: string): Promise<number> {
-        const data = await this.getPriceData([coinId]);
-        return data[coinId]?.usd_24h_change || 0;
+    public async get24hChange(coin: string): Promise<number> {
+        try {
+            const data = await this.getPriceData([coin]);
+            return data[coin]?.usd_24h_change || 0;
+        } catch (error) {
+            console.error("Error fetching 24h change from CoinGecko:", error);
+            throw error;
+        }
     }
 
     public async validatePrice(

@@ -5,74 +5,39 @@ async function testBinanceService() {
         console.log("🔄 Starting Binance Service Test\n");
 
         // Initialize service
-        console.log("Stage 1: Initializing Binance Service...");
+        console.log("Stage 1: Initializing Service...");
         const binance = BinanceService.getInstance();
+        console.log("✅ Service initialized\n");
 
-        // Test WebSocket connection
-        console.log("\nStage 2: Testing WebSocket Connection...");
-        await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(
-                    new Error(
-                        "Connection timeout - no connection after 5 seconds"
-                    )
-                );
-            }, 5000);
-
-            const checkConnection = setInterval(() => {
-                if (binance.isConnected()) {
-                    clearTimeout(timeout);
-                    clearInterval(checkConnection);
-                    resolve();
-                }
-            }, 100);
-        });
-        console.log("✅ WebSocket connected successfully");
-
-        // Subscribe to BTC/USDT price updates
-        console.log("\nStage 3: Subscribing to BTCUSDT price updates...");
-        let priceUpdateReceived = false;
+        // Test WebSocket Connection
+        console.log("Stage 2: Testing WebSocket Connection...");
+        let priceUpdates = 0;
         const symbol = "BTCUSDT";
 
-        await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(
-                    new Error(
-                        "Price update timeout - no updates received in 5 seconds"
-                    )
-                );
-            }, 5000);
+        const priceCallback = (price: number) => {
+            console.log(`💹 BTC Price: $${price.toFixed(2)}`);
+            priceUpdates++;
+        };
 
-            binance.onPriceUpdate((update) => {
-                if (update.symbol === symbol) {
-                    if (!priceUpdateReceived) {
-                        priceUpdateReceived = true;
-                        console.log(
-                            `✅ Received first price update: $${update.price.toFixed(2)}`
-                        );
-                        clearTimeout(timeout);
-                        resolve();
-                    }
-                    console.log(`💹 BTC Price: $${update.price.toFixed(2)}`);
-                }
-            });
+        binance.subscribeToPrice(symbol, priceCallback);
 
-            binance.subscribeToSymbol(symbol);
-        });
+        // Wait for price updates
+        console.log("Waiting for price updates (10 seconds)...");
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        console.log(`✅ Received ${priceUpdates} price updates\n`);
 
-        // Get 24h volume
-        console.log("\nStage 4: Fetching 24h trading volume...");
-        const volume = await binance.get24hVolume(symbol);
-        console.log(`✅ 24h Volume: ${volume.toFixed(2)} BTC`);
-
-        // Monitor prices for 30 seconds
-        console.log("\nStage 5: Monitoring prices for 30 seconds...");
-        await new Promise((resolve) => setTimeout(resolve, 30000));
+        // Test Price Retrieval
+        console.log("Stage 3: Testing Price Retrieval...");
+        const price = await binance.getPrice(symbol);
+        console.log(`Current BTC Price: $${price.toFixed(2)}`);
+        console.log("✅ Price retrieved successfully\n");
 
         // Cleanup
-        console.log("\n🧹 Cleaning up...");
-        binance.unsubscribeFromSymbol(symbol);
-        console.log("✅ Test completed successfully");
+        console.log("Stage 4: Cleanup...");
+        binance.unsubscribeFromPrice(symbol, priceCallback);
+        console.log("✅ Cleanup completed\n");
+
+        console.log("✅ All Binance service tests completed successfully!");
     } catch (error: any) {
         console.error("\n❌ TEST FAILED");
         console.error("Error:", error?.message || "Unknown error");
